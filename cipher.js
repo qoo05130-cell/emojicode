@@ -70,18 +70,41 @@
 
   // ---- Modes -------------------------------------------------------------
 
+  // Characters reserved by the cipher (the 6 gestures + any decoration
+  // emojis). In partial modes these are always encrypted too — otherwise a
+  // literal 🖐️ in the plaintext would be indistinguishable from cipher
+  // output and decryption would mangle it.
+  const isReservedChar = (ch) => {
+    const cp = ch.codePointAt(0);
+    return CODEPOINT_TO_DIGIT.has(cp) || DECORATION_CODEPOINTS.has(cp);
+  };
+
   const MODES = {
     all: { label: '全部加密', shouldEncrypt: () => true },
-    digits: { label: '只加密數字', shouldEncrypt: (ch) => /[0-9]/.test(ch) },
-    english: { label: '只加密英文', shouldEncrypt: (ch) => /[A-Za-z]/.test(ch) },
+    digits: {
+      label: '只加密數字',
+      shouldEncrypt: (ch) => /[0-9]/.test(ch) || isReservedChar(ch),
+    },
+    english: {
+      label: '只加密英文',
+      shouldEncrypt: (ch) => /[A-Za-z]/.test(ch) || isReservedChar(ch),
+    },
   };
 
   function encrypt(text, mode = 'all') {
     if (!text) return '';
     const { shouldEncrypt } = MODES[mode] || MODES.all;
     let out = '';
-    for (const ch of text) {
-      out += shouldEncrypt(ch) ? encodeChar(ch) : ch;
+    // Iterate by grapheme-ish unit: take a base codepoint plus any trailing
+    // combining marks (VS16, ZWJ, skin tones) so an emoji like 🖐️ is treated
+    // as one character when checking shouldEncrypt and when encoding.
+    const chars = [...text];
+    for (let i = 0; i < chars.length; i++) {
+      let cluster = chars[i];
+      while (i + 1 < chars.length && isCombiningCodepoint(chars[i + 1].codePointAt(0))) {
+        cluster += chars[++i];
+      }
+      out += shouldEncrypt(cluster) ? encodeChar(cluster) : cluster;
     }
     return applyRules(out);
   }
