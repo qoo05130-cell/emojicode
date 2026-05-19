@@ -1,11 +1,13 @@
 (() => {
   'use strict';
 
-  // digit -> emoji (for display)
+  // ---- Core encoding -----------------------------------------------------
+
+  // digit -> emoji (used for output)
   const DIGIT_TO_EMOJI = ['✊', '☝️', '✌️', '🤟', '🖖', '🖐️'];
 
-  // base codepoint -> digit. We strip variation selectors and skin tones
-  // before lookup, so both ☝ and ☝️ map to 1.
+  // base codepoint -> digit. Variation selectors and skin tones are stripped
+  // before lookup so ☝, ☝️, ☝🏼 all map to the same digit.
   const CODEPOINT_TO_DIGIT = new Map([
     [0x270a, 0], // ✊  fist
     [0x261d, 1], // ☝  index up
@@ -15,8 +17,7 @@
     [0x1f590, 5], // 🖐 splayed hand
   ]);
 
-  // Codepoints to ignore when parsing (variation selectors, ZWJ, skin tones).
-  const isIgnorable = (cp) => {
+  const isCombiningCodepoint = (cp) => {
     if (cp === 0xfe0f || cp === 0xfe0e) return true; // variation selectors
     if (cp === 0x200d) return true; // zero-width joiner
     if (cp >= 0x1f3fb && cp <= 0x1f3ff) return true; // skin tone modifiers
@@ -35,65 +36,124 @@
     return out;
   }
 
-  function digitsToByte(digits) {
-    let v = 0;
-    for (const d of digits) v = v * BASE + d;
-    return v;
-  }
-
-  function encrypt(text) {
-    if (!text) return '';
-    const bytes = new TextEncoder().encode(text);
-    const groups = [];
+  function encodeChar(ch) {
+    const bytes = new TextEncoder().encode(ch);
+    let s = '';
     for (const b of bytes) {
-      const emojis = byteToDigits(b).map((d) => DIGIT_TO_EMOJI[d]).join('');
-      groups.push(emojis);
+      for (const d of byteToDigits(b)) s += DIGIT_TO_EMOJI[d];
     }
-    return groups.join(' ');
+    return s;
   }
 
-  function parseDigits(cipher) {
-    const digits = [];
-    for (const ch of cipher) {
-      const cp = ch.codePointAt(0);
-      if (isIgnorable(cp)) continue;
-      const d = CODEPOINT_TO_DIGIT.get(cp);
-      if (d !== undefined) {
-        digits.push(d);
-        continue;
-      }
-      // Treat whitespace and common separators as harmless.
-      if (/\s|[|,.\-_/]/.test(ch)) continue;
-      throw new Error(`不認得這個符號：「${ch}」`);
-    }
-    return digits;
+  // ---- Special rules ----------------------------------------------------
+  // Post-processing transformations applied after the base cipher is
+  // produced. Each rule has an `apply(s) -> s` and registers any decorative
+  // codepoints it inserts in DECORATION_CODEPOINTS so the decoder skips them.
+  // Add new rules here.
+
+  const DECORATION_CODEPOINTS = new Set([
+    0x1f62d, // 😭 crying face — inserted between two adjacent palms
+  ]);
+
+  const RULES = [
+    {
+      name: '兩個手掌之間自動出現哭臉',
+      // Lookahead so 🖐️🖐️🖐️ becomes 🖐️😭🖐️😭🖐️ (every adjacent pair).
+      apply: (s) => s.replace(/🖐️(?=🖐️)/g, '🖐️😭'),
+    },
+  ];
+
+  function applyRules(s) {
+    for (const r of RULES) s = r.apply(s);
+    return s;
   }
+
+  // ---- Modes -------------------------------------------------------------
+
+  const MODES = {
+    all: { label: '全部加密', shouldEncrypt: () => true },
+    digits: { label: '只加密數字', shouldEncrypt: (ch) => /[0-9]/.test(ch) },
+    english: { label: '只加密英文', shouldEncrypt: (ch) => /[A-Za-z]/.test(ch) },
+  };
+
+  function encrypt(text, mode = 'all') {
+    if (!text) return '';
+    const { shouldEncrypt } = MODES[mode] || MODES.all;
+    let out = '';
+    for (const ch of text) {
+      out += shouldEncrypt(ch) ? encodeChar(ch) : ch;
+    }
+    return applyRules(out);
+  }
+
+  // ---- Decryption -------------------------------------------------------
+  // Walks the cipher one codepoint at a time. Gesture emojis accumulate into
+  // a 4-digit buffer that flushes to a byte; anything else passes through as
+  // a literal (after first flushing any decoded bytes as UTF-8). This makes
+  // the decoder mode-agnostic: it handles all-encrypt and partial-encrypt
+  // outputs with the same code path.
 
   function decrypt(cipher) {
-    const digits = parseDigits(cipher);
-    if (digits.length === 0) return '';
-    if (digits.length % DIGITS_PER_BYTE !== 0) {
+    if (!cipher) return '';
+
+    let out = '';
+    let pendingBytes = [];
+    let digitBuf = [];
+
+    const flushBytes = () => {
+      if (!pendingBytes.length) return;
+      try {
+        out += new TextDecoder('utf-8', { fatal: true }).decode(
+          new Uint8Array(pendingBytes)
+        );
+      } catch {
+        throw new Error('解出的 bytes 不是有效的 UTF-8，請檢查手勢順序');
+      }
+      pendingBytes = [];
+    };
+
+    for (const ch of cipher) {
+      const cp = ch.codePointAt(0);
+      if (isCombiningCodepoint(cp)) continue;
+      if (DECORATION_CODEPOINTS.has(cp)) continue;
+
+      const d = CODEPOINT_TO_DIGIT.get(cp);
+      if (d !== undefined) {
+        digitBuf.push(d);
+        if (digitBuf.length === DIGITS_PER_BYTE) {
+          let v = 0;
+          for (const x of digitBuf) v = v * BASE + x;
+          if (v > 255) {
+            throw new Error('有一組手勢無法對應到合法 byte (>255)');
+          }
+          pendingBytes.push(v);
+          digitBuf = [];
+        }
+        continue;
+      }
+
+      // Literal character — flush any decoded bytes first so the literal
+      // appears in the right position, then emit it verbatim.
+      if (digitBuf.length) {
+        throw new Error(
+          `手勢沒湊滿 4 個就遇到非手勢字元「${ch}」(目前 ${digitBuf.length} 個)`
+        );
+      }
+      flushBytes();
+      out += ch;
+    }
+
+    if (digitBuf.length) {
       throw new Error(
-        `手勢數量不是 ${DIGITS_PER_BYTE} 的倍數（共 ${digits.length} 個），無法完整解密`
+        `結尾還有 ${digitBuf.length} 個手勢沒湊滿一組 (每組需要 ${DIGITS_PER_BYTE} 個)`
       );
     }
-    const bytes = new Uint8Array(digits.length / DIGITS_PER_BYTE);
-    for (let i = 0; i < bytes.length; i++) {
-      const slice = digits.slice(i * DIGITS_PER_BYTE, (i + 1) * DIGITS_PER_BYTE);
-      const b = digitsToByte(slice);
-      if (b > 255) {
-        throw new Error(`第 ${i + 1} 組手勢無法對應到合法 byte`);
-      }
-      bytes[i] = b;
-    }
-    try {
-      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-    } catch {
-      throw new Error('解出的 bytes 不是有效的 UTF-8，請檢查手勢順序');
-    }
+    flushBytes();
+    return out;
   }
 
-  // --- DOM wiring ---
+  // ---- DOM wiring -------------------------------------------------------
+
   const $ = (id) => document.getElementById(id);
 
   function setOutput(node, text, kind = 'normal') {
@@ -129,48 +189,52 @@
     }, 1200);
   }
 
+  function wireEncryptPanel(mode) {
+    const input = $(`plain-input-${mode}`);
+    const output = $(`cipher-output-${mode}`);
+    const btn = $(`encrypt-btn-${mode}`);
+    const copyBtn = $(`copy-cipher-${mode}`);
+
+    const run = () => {
+      try {
+        setOutput(output, encrypt(input.value, mode));
+      } catch (e) {
+        setOutput(output, e.message, 'error');
+      }
+    };
+
+    setOutput(output, '');
+    btn.addEventListener('click', run);
+    input.addEventListener('input', run);
+    copyBtn.addEventListener('click', async (e) => {
+      const ok = await copyText(output.textContent);
+      flashButton(e.currentTarget, ok ? '已複製 ✓' : '複製失敗');
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
-    const plainInput = $('plain-input');
-    const cipherOutput = $('cipher-output');
+    wireEncryptPanel('all');
+    wireEncryptPanel('digits');
+    wireEncryptPanel('english');
+
     const cipherInput = $('cipher-input');
     const plainOutput = $('plain-output');
-
-    setOutput(cipherOutput, '');
     setOutput(plainOutput, '');
 
-    $('encrypt-btn').addEventListener('click', () => {
-      try {
-        setOutput(cipherOutput, encrypt(plainInput.value));
-      } catch (e) {
-        setOutput(cipherOutput, e.message, 'error');
-      }
-    });
-
-    $('decrypt-btn').addEventListener('click', () => {
+    const runDecrypt = () => {
       try {
         setOutput(plainOutput, decrypt(cipherInput.value));
       } catch (e) {
         setOutput(plainOutput, e.message, 'error');
       }
-    });
+    };
 
-    $('copy-cipher').addEventListener('click', async (e) => {
-      const ok = await copyText(cipherOutput.textContent);
-      flashButton(e.currentTarget, ok ? '已複製 ✓' : '複製失敗');
-    });
+    $('decrypt-btn').addEventListener('click', runDecrypt);
+    cipherInput.addEventListener('input', runDecrypt);
 
     $('copy-plain').addEventListener('click', async (e) => {
       const ok = await copyText(plainOutput.textContent);
       flashButton(e.currentTarget, ok ? '已複製 ✓' : '複製失敗');
-    });
-
-    // Live encrypt as the user types — instant feedback feels nicer.
-    plainInput.addEventListener('input', () => {
-      try {
-        setOutput(cipherOutput, encrypt(plainInput.value));
-      } catch (e) {
-        setOutput(cipherOutput, e.message, 'error');
-      }
     });
   });
 })();

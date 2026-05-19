@@ -25,25 +25,55 @@
       </ul>
       <p class="hint">
         每個字會先轉成 UTF-8 bytes，每 byte 用 4 個手勢 (base-6) 表示。
-        支援中英文、符號、emoji。
       </p>
+      <div class="rules">
+        <strong>特殊規則</strong>
+        <ul>
+          <li>🖐️🖐️ 兩個手掌相鄰時，中間會自動冒出 😭</li>
+        </ul>
+      </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" data-mode="all">
       <div class="panel-head">
-        <h2>🔒 加密</h2>
+        <h2>🔒 全部加密</h2>
         <div class="actions">
-          <button type="button" id="encrypt-btn" class="primary">加密 →</button>
-          <button type="button" id="copy-cipher" class="ghost">複製結果</button>
+          <button type="button" id="encrypt-btn-all" class="primary">加密 →</button>
+          <button type="button" id="copy-cipher-all" class="ghost">複製結果</button>
         </div>
       </div>
-      <label for="plain-input" class="sr-only">輸入文字</label>
-      <textarea id="plain-input" placeholder="輸入要加密的文字，例如：Hi 你好"></textarea>
-      <label for="cipher-output" class="sr-only">加密結果</label>
-      <div id="cipher-output" class="output" aria-live="polite"></div>
+      <p class="panel-hint">把每一個字（中文、英文、符號、emoji）都換成手勢。</p>
+      <textarea id="plain-input-all" placeholder="例如：Hi 你好 😊"></textarea>
+      <div id="cipher-output-all" class="output" aria-live="polite"></div>
     </section>
 
-    <section class="panel">
+    <section class="panel" data-mode="digits">
+      <div class="panel-head">
+        <h2>🔢 只加密數字</h2>
+        <div class="actions">
+          <button type="button" id="encrypt-btn-digits" class="primary">加密 →</button>
+          <button type="button" id="copy-cipher-digits" class="ghost">複製結果</button>
+        </div>
+      </div>
+      <p class="panel-hint">只把 0-9 換成手勢，其餘字元原樣保留。</p>
+      <textarea id="plain-input-digits" placeholder="例如：我的密碼是 1234"></textarea>
+      <div id="cipher-output-digits" class="output" aria-live="polite"></div>
+    </section>
+
+    <section class="panel" data-mode="english">
+      <div class="panel-head">
+        <h2>🔤 只加密英文</h2>
+        <div class="actions">
+          <button type="button" id="encrypt-btn-english" class="primary">加密 →</button>
+          <button type="button" id="copy-cipher-english" class="ghost">複製結果</button>
+        </div>
+      </div>
+      <p class="panel-hint">只把 A-Z 和 a-z 換成手勢，其餘字元原樣保留。</p>
+      <textarea id="plain-input-english" placeholder="例如：Hello 世界"></textarea>
+      <div id="cipher-output-english" class="output" aria-live="polite"></div>
+    </section>
+
+    <section class="panel decrypt-panel">
       <div class="panel-head">
         <h2>🔓 解密</h2>
         <div class="actions">
@@ -51,9 +81,8 @@
           <button type="button" id="copy-plain" class="ghost">複製結果</button>
         </div>
       </div>
-      <label for="cipher-input" class="sr-only">輸入手勢密文</label>
-      <textarea id="cipher-input" placeholder="貼上手勢 emoji 串，例如：✊✌️✊✊ ✊✌️🖐️🤟"></textarea>
-      <label for="plain-output" class="sr-only">解密結果</label>
+      <p class="panel-hint">三種加密模式產生的密文都能在這裡還原。</p>
+      <textarea id="cipher-input" placeholder="貼上手勢密文，例如：✊✌️✊✊✊✌️🖐️🤟"></textarea>
       <div id="plain-output" class="output" aria-live="polite"></div>
     </section>
 

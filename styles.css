@@ -73,6 +73,30 @@ h2 { font-size: 1.05rem; margin: 0; }
   color: var(--muted);
 }
 
+.rules {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  font-size: 0.9rem;
+}
+.rules strong { color: var(--accent-ink); }
+.rules ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
+.panel-hint {
+  margin: -4px 0 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.decrypt-panel {
+  border-color: var(--accent);
+  border-width: 1px;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
