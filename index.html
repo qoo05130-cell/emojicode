@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>手勢密碼 · Hand Gesture Cipher</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>✋ 手勢密碼</h1>
+      <p class="subtitle">把文字變成一串手指比出來的數字</p>
+    </header>
+
+    <section class="legend" aria-label="對照表">
+      <h2>對照表</h2>
+      <ul class="legend-grid">
+        <li><span class="emoji">✊</span><span class="num">0</span></li>
+        <li><span class="emoji">☝️</span><span class="num">1</span></li>
+        <li><span class="emoji">✌️</span><span class="num">2</span></li>
+        <li><span class="emoji">🤟</span><span class="num">3</span></li>
+        <li><span class="emoji">🖖</span><span class="num">4</span></li>
+        <li><span class="emoji">🖐️</span><span class="num">5</span></li>
+      </ul>
+      <p class="hint">
+        每個字會先轉成 UTF-8 bytes，每 byte 用 4 個手勢 (base-6) 表示。
+        支援中英文、符號、emoji。
+      </p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>🔒 加密</h2>
+        <div class="actions">
+          <button type="button" id="encrypt-btn" class="primary">加密 →</button>
+          <button type="button" id="copy-cipher" class="ghost">複製結果</button>
+        </div>
+      </div>
+      <label for="plain-input" class="sr-only">輸入文字</label>
+      <textarea id="plain-input" placeholder="輸入要加密的文字，例如：Hi 你好"></textarea>
+      <label for="cipher-output" class="sr-only">加密結果</label>
+      <div id="cipher-output" class="output" aria-live="polite"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>🔓 解密</h2>
+        <div class="actions">
+          <button type="button" id="decrypt-btn" class="primary">← 解密</button>
+          <button type="button" id="copy-plain" class="ghost">複製結果</button>
+        </div>
+      </div>
+      <label for="cipher-input" class="sr-only">輸入手勢密文</label>
+      <textarea id="cipher-input" placeholder="貼上手勢 emoji 串，例如：✊✌️✊✊ ✊✌️🖐️🤟"></textarea>
+      <label for="plain-output" class="sr-only">解密結果</label>
+      <div id="plain-output" class="output" aria-live="polite"></div>
+    </section>
+
+    <footer>
+      <p>玩玩看：把同一句話送給朋友，看他能不能用手指比出來 ✋</p>
+    </footer>
+  </main>
+
+  <script src="cipher.js"></script>
+</body>
+</html>
