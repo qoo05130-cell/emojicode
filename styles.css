@@ -97,6 +97,43 @@ h2 { font-size: 1.05rem; margin: 0; }
   border-width: 1px;
 }
 
+.genz-panel {
+  background: linear-gradient(135deg, #fff6ec 0%, #ffeaf3 100%);
+  border-color: #f4b6d1;
+}
+
+.dict {
+  margin-top: 14px;
+  font-size: 0.88rem;
+}
+.dict summary {
+  cursor: pointer;
+  color: var(--accent-ink);
+  user-select: none;
+  padding: 4px 0;
+}
+.dict summary:hover { color: var(--accent); }
+.dict-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+.dict-grid h3 {
+  font-size: 0.85rem;
+  margin: 6px 0 4px;
+  color: var(--accent-ink);
+}
+.dict-grid ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+.dict-grid li { margin: 2px 0; }
+@media (max-width: 540px) {
+  .dict-grid { grid-template-columns: 1fr; }
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
