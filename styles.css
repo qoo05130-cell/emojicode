@@ -97,24 +97,7 @@ h2 { font-size: 1.05rem; margin: 0; }
   border-width: 1px;
 }
 
-.shortcuts {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 4px 12px;
-  margin-top: 6px;
-  padding-left: 0;
-  list-style: none;
-}
-.shortcuts li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.shortcuts .emoji {
-  font-size: 1.15rem;
-  line-height: 1;
-}
-.shortcuts code {
+.rules code {
   background: #f6efe2;
   border-radius: 4px;
   padding: 1px 6px;

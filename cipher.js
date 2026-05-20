@@ -2,19 +2,44 @@
   'use strict';
 
   // ---- Core encoding -----------------------------------------------------
+  // Base-13 positional system. Each byte (0-255) is written as 3 base-13
+  // digits (since 13² = 169 < 256 ≤ 13³ = 2197). All 13 emojis carry equal
+  // mathematical weight — none of them are "shortcuts" or "names"; each is
+  // simply a digit whose value is determined by divmod.
 
-  // digit -> emoji (used for output)
-  const DIGIT_TO_EMOJI = ['✊', '☝️', '✌️', '🤟', '🖖', '🖐️'];
+  // digit -> emoji (digits 0-12)
+  const DIGIT_TO_EMOJI = [
+    '✊',   // 0
+    '☝️',  // 1
+    '✌️',  // 2
+    '🤟',  // 3
+    '🖖',  // 4
+    '🖐️',  // 5
+    '💀',  // 6
+    '🥵',  // 7
+    '🤡',  // 8
+    '🫠',  // 9
+    '🥺',  // 10
+    '🙏',  // 11
+    '🤌',  // 12
+  ];
 
   // base codepoint -> digit. Variation selectors and skin tones are stripped
   // before lookup so ☝, ☝️, ☝🏼 all map to the same digit.
   const CODEPOINT_TO_DIGIT = new Map([
-    [0x270a, 0], // ✊  fist
-    [0x261d, 1], // ☝  index up
-    [0x270c, 2], // ✌  victory
-    [0x1f91f, 3], // 🤟 love-you
-    [0x1f596, 4], // 🖖 vulcan
-    [0x1f590, 5], // 🖐 splayed hand
+    [0x270a,  0],  // ✊  fist
+    [0x261d,  1],  // ☝  index up
+    [0x270c,  2],  // ✌  victory
+    [0x1f91f, 3],  // 🤟 love-you
+    [0x1f596, 4],  // 🖖 vulcan
+    [0x1f590, 5],  // 🖐 splayed hand
+    [0x1f480, 6],  // 💀 skull
+    [0x1f975, 7],  // 🥵 hot face
+    [0x1f921, 8],  // 🤡 clown
+    [0x1fae0, 9],  // 🫠 melting face
+    [0x1f97a, 10], // 🥺 pleading face
+    [0x1f64f, 11], // 🙏 folded hands
+    [0x1f90c, 12], // 🤌 pinched fingers
   ]);
 
   const isCombiningCodepoint = (cp) => {
@@ -24,8 +49,8 @@
     return false;
   };
 
-  const BASE = 6;
-  const DIGITS_PER_BYTE = 4; // 6^4 = 1296 > 256
+  const BASE = 13;
+  const DIGITS_PER_BYTE = 3; // 13^3 = 2197 ≥ 256
 
   function byteToDigits(byte) {
     const out = new Array(DIGITS_PER_BYTE);
@@ -68,64 +93,15 @@
     return s;
   }
 
-  // ---- Shortcut codes ---------------------------------------------------
-  // Compression layer. Common byte sequences in the encoded gesture stream
-  // are replaced with a single emoji to keep output from ballooning. Each
-  // shortcut maps one plaintext snippet to one emoji; on decrypt the emoji
-  // expands back to the original gesture sequence before normal decoding.
-  //
-  // Targets are picked so frequencies differ across English vs Chinese text
-  // (and so each emoji actually shows up somewhere). Add more by appending —
-  // pick plaintexts whose bytes can't appear at non-character-boundaries in
-  // valid UTF-8 (ASCII-only or whole multi-byte chars are both safe).
-
-  const SHORTCUTS = [
-    ['the', '💀'],
-    ['ing', '🥵'],
-    ['and', '🤡'],
-    ['的',   '🫠'],
-    ['了',   '🥺'],
-    ['是',   '🙏'],
-    ['我',   '🤌'],
-  ];
-
-  // Encode each shortcut's plaintext into its raw gesture sequence (no rule
-  // decoration — we replace before applyRules runs).
-  const SHORTCUT_ENCODED = SHORTCUTS.map(([plain, emoji]) => {
-    let g = '';
-    for (const b of new TextEncoder().encode(plain)) {
-      for (const d of byteToDigits(b)) g += DIGIT_TO_EMOJI[d];
-    }
-    return [g, emoji];
-  });
-
-  const SHORTCUT_CODEPOINTS = new Set(SHORTCUTS.map(([, e]) => e.codePointAt(0)));
-
-  function applyShortcuts(gestureStream) {
-    let s = gestureStream;
-    for (const [g, e] of SHORTCUT_ENCODED) s = s.split(g).join(e);
-    return s;
-  }
-
-  function expandShortcuts(cipher) {
-    let s = cipher;
-    for (const [g, e] of SHORTCUT_ENCODED) s = s.split(e).join(g);
-    return s;
-  }
-
   // ---- Modes -------------------------------------------------------------
 
-  // Characters reserved by the cipher (the 6 gestures + any decoration
-  // emojis + shortcut emojis). In partial modes these are always encrypted —
-  // otherwise a literal 🖐️ or 💀 in the plaintext would be indistinguishable
-  // from cipher output and decryption would mangle it.
+  // Characters reserved by the cipher (the 13 digit emojis + any decoration
+  // emojis). In partial modes these are always encrypted — otherwise a literal
+  // 🖐️ or 💀 in the plaintext would be indistinguishable from cipher output
+  // and decryption would mangle it.
   const isReservedChar = (ch) => {
     const cp = ch.codePointAt(0);
-    return (
-      CODEPOINT_TO_DIGIT.has(cp) ||
-      DECORATION_CODEPOINTS.has(cp) ||
-      SHORTCUT_CODEPOINTS.has(cp)
-    );
+    return CODEPOINT_TO_DIGIT.has(cp) || DECORATION_CODEPOINTS.has(cp);
   };
 
   const MODES = {
@@ -158,7 +134,7 @@
       }
       out += m.shouldEncrypt(cluster) ? encodeChar(cluster) : cluster;
     }
-    return applyRules(applyShortcuts(out));
+    return applyRules(out);
   }
 
   // ---- Decryption -------------------------------------------------------
@@ -170,7 +146,6 @@
 
   function decrypt(cipher) {
     if (!cipher) return '';
-    cipher = expandShortcuts(cipher);
 
     let out = '';
     let pendingBytes = [];

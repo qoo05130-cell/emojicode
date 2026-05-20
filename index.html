@@ -14,7 +14,7 @@
     </header>
 
     <section class="legend" aria-label="對照表">
-      <h2>對照表</h2>
+      <h2>對照表（base-13 數位）</h2>
       <ul class="legend-grid">
         <li><span class="emoji">✊</span><span class="num">0</span></li>
         <li><span class="emoji">☝️</span><span class="num">1</span></li>
@@ -22,29 +22,32 @@
         <li><span class="emoji">🤟</span><span class="num">3</span></li>
         <li><span class="emoji">🖖</span><span class="num">4</span></li>
         <li><span class="emoji">🖐️</span><span class="num">5</span></li>
+        <li><span class="emoji">💀</span><span class="num">6</span></li>
+        <li><span class="emoji">🥵</span><span class="num">7</span></li>
+        <li><span class="emoji">🤡</span><span class="num">8</span></li>
+        <li><span class="emoji">🫠</span><span class="num">9</span></li>
+        <li><span class="emoji">🥺</span><span class="num">10</span></li>
+        <li><span class="emoji">🙏</span><span class="num">11</span></li>
+        <li><span class="emoji">🤌</span><span class="num">12</span></li>
       </ul>
       <p class="hint">
-        每個字會先轉成 UTF-8 bytes，每 byte 用 4 個手勢 (base-6) 表示。
+        每個字先轉成 UTF-8 bytes，每 byte 跑 divmod 13 三次得到 3 個位數，依上表對應到 emoji。13³ = 2197 ≥ 256，所以一定夠放。
       </p>
 
       <div class="rules">
-        <strong>縮寫代號</strong>（這幾個常見片段會被壓成單一 emoji，避免密文一下就爆長）
-        <ul class="shortcuts">
-          <li><span class="emoji">💀</span>＝ <code>the</code></li>
-          <li><span class="emoji">🥵</span>＝ <code>ing</code></li>
-          <li><span class="emoji">🤡</span>＝ <code>and</code></li>
-          <li><span class="emoji">🫠</span>＝ <code>的</code></li>
-          <li><span class="emoji">🥺</span>＝ <code>了</code></li>
-          <li><span class="emoji">🙏</span>＝ <code>是</code></li>
-          <li><span class="emoji">🤌</span>＝ <code>我</code></li>
+        <strong>運算</strong>
+        <ul>
+          <li>每個 byte <code>b</code> 拆成位數：<code>d₂ = ⌊b/169⌋</code>、<code>d₁ = ⌊b/13⌋ mod 13</code>、<code>d₀ = b mod 13</code></li>
+          <li>還原時：<code>b = d₂·169 + d₁·13 + d₀</code></li>
+          <li>每個 emoji 都是「算出來」的位數值，不是查字典查出來的</li>
         </ul>
       </div>
 
       <div class="rules">
         <strong>特殊規則</strong>
         <ul>
-          <li>🖐️🖐️ 兩個手掌相鄰時，中間會自動冒出 😭</li>
-          <li>在「只加密數字 / 只加密英文」模式下，如果輸入本來就含手勢 emoji（✊☝️✌️🤟🖖🖐️）、😭、或任何縮寫代號（💀🥵🤡🫠🥺🙏🤌），都會被一併加密，避免和密文衝突</li>
+          <li>🖐️🖐️ 兩個手掌相鄰時，中間會自動冒出 😭（單純視覺裝飾，解密時自動忽略）</li>
+          <li>在「只加密數字 / 只加密英文」模式下，如果輸入本來就含上表 13 個 emoji 或 😭，都會被一併加密，避免和密文衝突</li>
         </ul>
       </div>
     </section>
