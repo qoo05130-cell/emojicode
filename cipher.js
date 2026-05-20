@@ -52,14 +52,14 @@
   // Add new rules here.
 
   const DECORATION_CODEPOINTS = new Set([
-    0x1f62d, // 😭 crying face — inserted between two adjacent palms
+    0x2728, // ✨ sparkles — inserted between two adjacent palms
   ]);
 
   const RULES = [
     {
-      name: '兩個手掌之間自動出現哭臉',
-      // Lookahead so 🖐️🖐️🖐️ becomes 🖐️😭🖐️😭🖐️ (every adjacent pair).
-      apply: (s) => s.replace(/🖐️(?=🖐️)/g, '🖐️😭'),
+      name: '兩個手掌之間自動冒出閃光',
+      // Lookahead so 🖐️🖐️🖐️ becomes 🖐️✨🖐️✨🖐️ (every adjacent pair).
+      apply: (s) => s.replace(/🖐️(?=🖐️)/g, '🖐️✨'),
     },
   ];
 
@@ -68,141 +68,89 @@
     return s;
   }
 
-  // ---- Gen Z slang dictionary -------------------------------------------
-  // English entries use case-insensitive whole-word regex; Chinese entries
-  // are plain substrings (Chinese has no word boundaries). Order matters —
-  // longer/more-specific patterns must come before their substrings (e.g.
-  // "no cap" before "cap", "frfr" before "fr").
+  // ---- Shortcut codes ---------------------------------------------------
+  // Compression layer. Common byte sequences in the encoded gesture stream
+  // are replaced with a single emoji to keep output from ballooning. Each
+  // shortcut maps one plaintext snippet to one emoji; on decrypt the emoji
+  // expands back to the original gesture sequence before normal decoding.
+  //
+  // Targets are picked so frequencies differ across English vs Chinese text
+  // (and so each emoji actually shows up somewhere). Add more by appending —
+  // pick plaintexts whose bytes can't appear at non-character-boundaries in
+  // valid UTF-8 (ASCII-only or whole multi-byte chars are both safe).
 
-  const GENZ_SLANG_EN = [
-    [/\bno\s*cap\b/gi, '🚫🧢'],
-    [/\bspill the tea\b/gi, '💧🍵'],
-    [/\bbest ever\b/gi, '🐐'],
-    [/\bkilling it\b/gi, '🔥'],
-    [/\bfor real\b/gi, '💯'],
-    [/\bfrfr\b/gi, '💯'],
-    [/\blmf?ao\b/gi, '💀'],
-    [/\brofl\b/gi, '💀'],
-    [/\blol\b/gi, '💀'],
-    [/\bdying\b/gi, '💀'],
-    [/\bhilarious\b/gi, '💀'],
-    [/\bfr\b/gi, '💯'],
-    [/\bcap\b/gi, '🧢'],
-    [/\blying\b/gi, '🧢'],
-    [/\bfake\b/gi, '🧢'],
-    [/\bfire\b/gi, '🔥'],
-    [/\blit\b/gi, '🔥'],
-    [/\bawesome\b/gi, '🔥'],
-    [/\bamazing\b/gi, '🔥'],
-    [/\bcringe\b/gi, '🫠'],
-    [/\bembarrassing\b/gi, '🫠'],
-    [/\bsus\b/gi, '👀'],
-    [/\btell me more\b/gi, '👀'],
-    [/\bgossip\b/gi, '🍵'],
-    [/\bdrama\b/gi, '🍵'],
-    [/\btea\b/gi, '🍵'],
-    [/\bsassy\b/gi, '💅'],
-    [/\bidgaf\b/gi, '💅'],
-    [/\bconfident\b/gi, '💅'],
-    [/\bpretty please\b/gi, '🥺'],
-    [/\bplease\b/gi, '🥺'],
-    [/\bpls\b/gi, '🥺'],
-    [/\bplz\b/gi, '🥺'],
-    [/\bthank you\b/gi, '🙏'],
-    [/\bthanks\b/gi, '🙏'],
-    [/\bthx\b/gi, '🙏'],
-    [/\bgoat\b/gi, '🐐'],
-    [/\btotally\b/gi, '💯'],
-    [/\bagreed\b/gi, '💯'],
-    [/\bsalute\b/gi, '🫡'],
-    [/\brespect\b/gi, '🫡'],
-    [/\bclown\b/gi, '🤡'],
-    [/\bfoolish\b/gi, '🤡'],
-    [/\bugh\b/gi, '😩'],
-    [/\bexhausted\b/gi, '😩'],
+  const SHORTCUTS = [
+    ['the', '💀'],
+    ['ing', '😭'],
+    ['and', '🤡'],
+    ['的',   '🫠'],
+    ['了',   '🥺'],
+    ['是',   '🙏'],
+    ['我',   '🤌'],
   ];
 
-  const GENZ_SLANG_ZH = [
-    ['笑死', '💀'],
-    ['哈哈哈哈', '💀'],
-    ['哈哈哈', '💀'],
-    ['超好笑', '💀'],
-    ['騙人', '🧢'],
-    ['說謊', '🧢'],
-    ['唬爛', '🧢'],
-    ['認真的', '💯'],
-    ['真的假的', '👀'],
-    ['真的', '💯'],
-    ['八卦', '🍵'],
-    ['聊一下', '🍵'],
-    ['爆料', '🍵'],
-    ['好猛', '🔥'],
-    ['超強', '🔥'],
-    ['很讚', '🔥'],
-    ['尷尬', '🫠'],
-    ['超尷尬', '🫠'],
-    ['可疑', '👀'],
-    ['拜託', '🥺'],
-    ['求求你', '🥺'],
-    ['謝謝', '🙏'],
-    ['感謝', '🙏'],
-    ['好累', '😩'],
-    ['累爆', '😩'],
-    ['小丑', '🤡'],
-  ];
+  // Encode each shortcut's plaintext into its raw gesture sequence (no rule
+  // decoration — we replace before applyRules runs).
+  const SHORTCUT_ENCODED = SHORTCUTS.map(([plain, emoji]) => {
+    let g = '';
+    for (const b of new TextEncoder().encode(plain)) {
+      for (const d of byteToDigits(b)) g += DIGIT_TO_EMOJI[d];
+    }
+    return [g, emoji];
+  });
 
-  function applyGenZSlang(text) {
-    let s = text;
-    for (const [zh, emoji] of GENZ_SLANG_ZH) s = s.split(zh).join(emoji);
-    for (const [re, emoji] of GENZ_SLANG_EN) s = s.replace(re, emoji);
+  const SHORTCUT_CODEPOINTS = new Set(SHORTCUTS.map(([, e]) => e.codePointAt(0)));
+
+  function applyShortcuts(gestureStream) {
+    let s = gestureStream;
+    for (const [g, e] of SHORTCUT_ENCODED) s = s.split(g).join(e);
+    return s;
+  }
+
+  function expandShortcuts(cipher) {
+    let s = cipher;
+    for (const [g, e] of SHORTCUT_ENCODED) s = s.split(e).join(g);
     return s;
   }
 
   // ---- Modes -------------------------------------------------------------
 
   // Characters reserved by the cipher (the 6 gestures + any decoration
-  // emojis). In partial modes these are always encrypted too — otherwise a
-  // literal 🖐️ in the plaintext would be indistinguishable from cipher
-  // output and decryption would mangle it.
+  // emojis + shortcut emojis). In partial modes these are always encrypted —
+  // otherwise a literal 🖐️ or 💀 in the plaintext would be indistinguishable
+  // from cipher output and decryption would mangle it.
   const isReservedChar = (ch) => {
     const cp = ch.codePointAt(0);
-    return CODEPOINT_TO_DIGIT.has(cp) || DECORATION_CODEPOINTS.has(cp);
+    return (
+      CODEPOINT_TO_DIGIT.has(cp) ||
+      DECORATION_CODEPOINTS.has(cp) ||
+      SHORTCUT_CODEPOINTS.has(cp)
+    );
   };
-
-  const passthrough = (t) => t;
 
   const MODES = {
     all: {
       label: '全部加密',
       shouldEncrypt: () => true,
-      preprocess: passthrough,
     },
     digits: {
       label: '只加密數字',
       shouldEncrypt: (ch) => /[0-9]/.test(ch) || isReservedChar(ch),
-      preprocess: passthrough,
     },
     english: {
       label: '只加密英文',
       shouldEncrypt: (ch) => /[A-Za-z]/.test(ch) || isReservedChar(ch),
-      preprocess: passthrough,
-    },
-    genz: {
-      label: 'Gen Z 模式',
-      shouldEncrypt: (ch) => /[A-Za-z]/.test(ch) || isReservedChar(ch),
-      preprocess: applyGenZSlang,
     },
   };
 
   function encrypt(text, mode = 'all') {
     if (!text) return '';
     const m = MODES[mode] || MODES.all;
-    const prepped = m.preprocess(text);
     let out = '';
     // Iterate by grapheme-ish unit: take a base codepoint plus any trailing
     // combining marks (VS16, ZWJ, skin tones) so an emoji like 🖐️ is treated
     // as one character when checking shouldEncrypt and when encoding.
-    const chars = [...prepped];
+    const chars = [...text];
     for (let i = 0; i < chars.length; i++) {
       let cluster = chars[i];
       while (i + 1 < chars.length && isCombiningCodepoint(chars[i + 1].codePointAt(0))) {
@@ -210,7 +158,7 @@
       }
       out += m.shouldEncrypt(cluster) ? encodeChar(cluster) : cluster;
     }
-    return applyRules(out);
+    return applyRules(applyShortcuts(out));
   }
 
   // ---- Decryption -------------------------------------------------------
@@ -222,6 +170,7 @@
 
   function decrypt(cipher) {
     if (!cipher) return '';
+    cipher = expandShortcuts(cipher);
 
     let out = '';
     let pendingBytes = [];
@@ -343,7 +292,6 @@
     wireEncryptPanel('all');
     wireEncryptPanel('digits');
     wireEncryptPanel('english');
-    wireEncryptPanel('genz');
 
     const cipherInput = $('cipher-input');
     const plainOutput = $('plain-output');

@@ -97,41 +97,28 @@ h2 { font-size: 1.05rem; margin: 0; }
   border-width: 1px;
 }
 
-.genz-panel {
-  background: linear-gradient(135deg, #fff6ec 0%, #ffeaf3 100%);
-  border-color: #f4b6d1;
-}
-
-.dict {
-  margin-top: 14px;
-  font-size: 0.88rem;
-}
-.dict summary {
-  cursor: pointer;
-  color: var(--accent-ink);
-  user-select: none;
-  padding: 4px 0;
-}
-.dict summary:hover { color: var(--accent); }
-.dict-grid {
+.shortcuts {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px 16px;
-  margin-top: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 4px 12px;
+  margin-top: 6px;
+  padding-left: 0;
+  list-style: none;
 }
-.dict-grid h3 {
-  font-size: 0.85rem;
-  margin: 6px 0 4px;
-  color: var(--accent-ink);
+.shortcuts li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.dict-grid ul {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--muted);
+.shortcuts .emoji {
+  font-size: 1.15rem;
+  line-height: 1;
 }
-.dict-grid li { margin: 2px 0; }
-@media (max-width: 540px) {
-  .dict-grid { grid-template-columns: 1fr; }
+.shortcuts code {
+  background: #f6efe2;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.92rem;
 }
 
 .panel {
