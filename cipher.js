@@ -52,14 +52,14 @@
   // Add new rules here.
 
   const DECORATION_CODEPOINTS = new Set([
-    0x2728, // ✨ sparkles — inserted between two adjacent palms
+    0x1f62d, // 😭 crying face — inserted between two adjacent palms
   ]);
 
   const RULES = [
     {
-      name: '兩個手掌之間自動冒出閃光',
-      // Lookahead so 🖐️🖐️🖐️ becomes 🖐️✨🖐️✨🖐️ (every adjacent pair).
-      apply: (s) => s.replace(/🖐️(?=🖐️)/g, '🖐️✨'),
+      name: '兩個手掌之間自動出現哭臉',
+      // Lookahead so 🖐️🖐️🖐️ becomes 🖐️😭🖐️😭🖐️ (every adjacent pair).
+      apply: (s) => s.replace(/🖐️(?=🖐️)/g, '🖐️😭'),
     },
   ];
 
@@ -81,7 +81,7 @@
 
   const SHORTCUTS = [
     ['the', '💀'],
-    ['ing', '😭'],
+    ['ing', '🥵'],
     ['and', '🤡'],
     ['的',   '🫠'],
     ['了',   '🥺'],
